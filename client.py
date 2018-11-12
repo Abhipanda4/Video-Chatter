@@ -8,6 +8,7 @@ from videofeed import VideoFeed
 class Client:
     def __init__(self):
         self.socket = socket.socket()
+        self.socket.settimeout(5)
         self.buffer_size = 2048
         self.videofeed = VideoFeed("client_cam", 1)
         self.vsock = videosocket.VideoSocket(self.socket)
@@ -18,8 +19,8 @@ class Client:
             if self.is_video_call:
                 frame = self.videofeed.get_frame()
                 self.vsock.vsend(frame)
-                # rcvd_frame = self.vsock.vreceive()
-                # self.videofeed.set_frame(rcvd_frame)
+                rcvd_frame = self.vsock.vreceive()
+                self.videofeed.set_frame(rcvd_frame)
             else:
                 msg = self.socket.recv(self.buffer_size)
                 if msg == bytes("VIDEO_CALL_START", "utf-16"):
@@ -73,7 +74,6 @@ class Client:
         root.destroy()
 
 
-
 client = Client()
 white = "#fff"
 
@@ -125,7 +125,7 @@ def design_bottom(master):
 
 def create_window():
     root = tk.Tk()
-    root.geometry("800x600")
+    root.geometry("800x800")
     root.protocol('WM_DELETE_WINDOW', lambda: cleanup(root))
 
     top_frame = tk.Frame(root, width=800, height=100, bg=white, padx=15, pady=15)
@@ -175,6 +175,7 @@ if __name__ == "__main__":
         server_port = 50000
         try:
             client.socket.connect((server_IP, server_port))
+            client.socket.settimeout(None)
             username = input("Enter username: ")
             client.send(bytes(username, "utf-16"))
             connected = True
