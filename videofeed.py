@@ -16,7 +16,7 @@ class VideoFeed:
         ret_val, img = self.cam.read()
         c = cv2.waitKey(1)
 
-        # cv2.imshow('my webcam', img)
+        cv2.imshow('MY WEBCAM', img)
         cv2_im = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         pil_im = Image.fromarray(cv2_im)
         b = io.BytesIO()
@@ -28,6 +28,7 @@ class VideoFeed:
         pil_bytes = io.BytesIO(frame_bytes)
         pil_image = Image.open(pil_bytes)
         cv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+        print(cv_image.shape)
         cv2.imshow(self.name, cv_image)
 
 if __name__=="__main__":

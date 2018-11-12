@@ -12,7 +12,6 @@ class VideoSocket:
 
     def vsend(self, framestring):
         length = len(framestring)
-        print(length)
         lengthstr = str(length).zfill(8)
 
         lensent = 0
@@ -44,7 +43,6 @@ class VideoSocket:
             lenrec += len(chunk)
         lengthstr = ''.join(lenArray)
         length = int(lengthstr)
-        print(length)
 
         # now we know length of image array
         # receive the image
