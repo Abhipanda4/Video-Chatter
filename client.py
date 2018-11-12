@@ -37,11 +37,42 @@ class Client:
 
     def initiate_video_call(self):
         self.send(bytes("VIDEO_CALL_START", "utf-16"))
-        # TODO: send username of receiver
-        self.send(bytes("GOD", "utf-16"))
+        self.online_users_window()
 
     def update_gui(self, msg, is_sent=False):
         display_listbox.insert("end", msg.decode("utf-16"))
+
+    def online_users_window(self):
+        usernames = self.socket.recv(self.buffer_size).decode("utf-16")
+        names = usernames.split("$")[:-1]
+        print(names)
+
+        num_online = len(names)
+        root = tk.Tk()
+        root.geometry("300x%s" %(str((2 + num_online) * 100)))
+        if num_online == 0:
+            l = tk.Label(root, text="No users online, try again later!!", padx=20, pady=10)
+            l.pack()
+        else:
+            l = tk.Label(root, text="Select user that you want to call", padx=20, pady=10)
+            l.pack()
+
+        for n in names:
+            b = tk.Button(root, text=n, command=lambda: self.send_target_name(root, n))
+            b.pack()
+
+        qb = tk.Button(root, text="Quit", command=lambda: self.send_target_name(root, None))
+        qb.pack()
+        root.mainloop()
+
+    def send_target_name(self, root, target_name):
+        if target_name:
+            self.send(bytes(target_name, "utf-16"))
+        else:
+            self.send(bytes("ALL_OUT", "utf-16"))
+        root.destroy()
+
+
 
 client = Client()
 white = "#fff"
