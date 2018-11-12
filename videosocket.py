@@ -1,26 +1,31 @@
 import socket
 
-class videosocket:
+class VideoSocket:
     def __init__(self , sock=None):
         if sock is None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
-            self.sock= sock
+            self.sock = sock
 
     def connect(self,host,port):
         self.sock.connect((host,port))
 
     def vsend(self, framestring):
-        totalsent = 0
-        metasent = 0
-        length =len(framestring)
-        lengthstr=str(length).zfill(8)
+        length = len(framestring)
+        print(length)
+        lengthstr = str(length).zfill(8)
 
-        while metasent < 8 :
-            sent = self.sock.send(lengthstr[metasent:])
+        lensent = 0
+        # send length of the image first
+        while lensent < 18 :
+            msg = bytes(lengthstr[lensent:], "utf-16")
+            sent = self.sock.send(msg)
             if sent == 0:
                 raise RuntimeError("Socket connection broken")
-            metasent += sent
+            lensent += sent
+
+        # send actual data
+        totalsent = 0
         while totalsent < length :
             sent = self.sock.send(framestring[totalsent:])
             if sent == 0:
@@ -28,23 +33,27 @@ class videosocket:
             totalsent += sent
 
     def vreceive(self):
-        totrec=0
-        metarec=0
-        msgArray = []
-        metaArray = []
-        while metarec < 8:
-            chunk = self.sock.recv(8 - metarec)
+        # first length of the image is received
+        lenArray = []
+        lenrec = 0
+        while lenrec < 18:
+            chunk = self.sock.recv(18 - lenrec)
             if chunk == '':
                 raise RuntimeError("Socket connection broken")
-            metaArray.append(chunk)
-            metarec += len(chunk)
-        lengthstr= ''.join(metaArray)
-        length=int(lengthstr)
+            lenArray.append(chunk.decode("utf-16"))
+            lenrec += len(chunk)
+        lengthstr = ''.join(lenArray)
+        length = int(lengthstr)
+        print(length)
 
-        while totrec<length :
+        # now we know length of image array
+        # receive the image
+        totrec = 0
+        imgArray = []
+        while totrec < length :
             chunk = self.sock.recv(length - totrec)
             if chunk == '':
                 raise RuntimeError("Socket connection broken")
-            msgArray.append(chunk)
+            imgArray.append(chunk)
             totrec += len(chunk)
-        return ''.join(msgArray)
+        return b''.join(imgArray)
