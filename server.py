@@ -43,6 +43,7 @@ class Server:
                     receiver_username = client.recv(self.buffer_size).decode("utf-16")
                     if receiver_username == "ALL_OUT":
                         continue
+                    print(receiver_username)
                     is_video = True
 
                     # send acceptance message to initiator
@@ -57,8 +58,8 @@ class Server:
         '''
         users = ""
         for u in self.clients.keys():
-            if u != initiator_username:
-                users = users + u + "$"
+            # if u != initiator_username:
+            users = users + u + "$"
         msg = bytes(users, "utf-16")
         self.send_to_one(initiator_username, msg, False)
 
