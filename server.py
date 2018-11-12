@@ -1,13 +1,7 @@
 import socket
 import threading
 import videosocket
-
-
-# DEBUG
-import io
-from PIL import Image
-import numpy as np
-import cv2
+import matplotlib.pyplot as plt
 
 class Server:
     def __init__(self, host='', port=50000):
@@ -34,15 +28,7 @@ class Server:
         while True:
             if is_video:
                 frame_bytes = vsock.vreceive()
-
-                #### Just trying things, remove it afterwards
-                pil_bytes = io.BytesIO(frame_bytes)
-                pil_image = Image.open(pil_bytes)
-                cv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-                cv2.imshow("oh yeah", cv_image)
-
                 self.send_to_one(receiver_username, frame_bytes)
-
             else:
                 msg = client.recv(self.buffer_size)
                 if msg == bytes("QUIT", "utf-16"):
@@ -50,14 +36,31 @@ class Server:
                     del self.clients[username]
                     self.broadcast(None, bytes("Client %s left the conversation" %(username), "utf-16"))
                 elif msg == bytes("VIDEO_CALL_START", "utf-16"):
-                    # note the receiver username and send a confirmation
-                    print("Sending confirmation msg")
+                    print("Video call initiated by %s" %(username))
+                    # send all online users to the initiator of video call
+                    self.send_online_users(username)
+                    # receive the username client selected
                     receiver_username = client.recv(self.buffer_size).decode("utf-16")
+                    if receiver_username == "ALL_OUT":
+                        continue
                     is_video = True
+
+                    # send acceptance message to initiator
                     self.send_to_one(username, bytes("VIDEO_CALL_START", "utf-16"), is_video=False)
                 else:
                     # normal msg, broadcast to all
                     self.broadcast(username, msg.decode("utf-16"))
+
+    def send_online_users(self, initiator_username):
+        '''
+        Send all online users separated by $ to initiator
+        '''
+        users = ""
+        for u in self.clients.keys():
+            if u != initiator_username:
+                users = users + u + "$"
+        msg = bytes(users, "utf-16")
+        self.send_to_one(initiator_username, msg, False)
 
     def broadcast(self, sender, msg):
         for u, c in self.clients.items():
@@ -67,13 +70,11 @@ class Server:
                 c[0].send(bytes("%s" %(msg), "utf-16"))
 
     def send_to_one(self, target, msg, is_video=True):
-        for u, c in self.clients.items():
-            if u == target:
-                if is_video:
-                    c[1].vsend(frame)
-                else:
-                    c[0].send(msg)
-                break
+        c = self.clients[target]
+        if is_video:
+            c[1].vsend(msg)
+        else:
+            c[0].send(msg)
 
 if __name__ == "__main__":
     s = Server()
