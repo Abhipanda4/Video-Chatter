@@ -10,33 +10,38 @@ class Client:
         self.socket = socket.socket()
         self.buffer_size = 2048
         self.videofeed = VideoFeed("client_cam", 1)
-        self.vsock = videosocket.videosocket(self.socket)
+        self.vsock = videosocket.VideoSocket(self.socket)
+        self.is_video_call = False
 
     def receive(self):
         while True:
-            msg = self.socket.recv(self.buffer_size)
-            self.update_gui(msg, False)
+            if self.is_video_call:
+                frame = self.videofeed.get_frame()
+                self.vsock.vsend(frame)
+                # rcvd_frame = self.vsock.vreceive()
+                # self.videofeed.set_frame(rcvd_frame)
+            else:
+                msg = self.socket.recv(self.buffer_size)
+                if msg == bytes("VIDEO_CALL_START", "utf-16"):
+                    self.is_video_call = True
+                else:
+                    self.update_gui(msg, False)
 
     def send(self, msg=None):
         if msg is None:
             msg = msg_box.get()
             msg_box.delete(0, tk.END)
-            self.socket.send(bytes(msg, "utf-8"))
+            self.socket.send(bytes(msg, "utf-16"))
         else:
             self.socket.send(msg)
 
     def initiate_video_call(self):
-        pass
-
-    def video_chat(self, target):
-        self.send(bytes("VIDEO_CALL_START", "utf-8"))
-        frame = self.videofeed.get_frame()
-        self.vsock.vsend(frame)
-        rcvd_frame = self.vsock.vreceive()
-        self.videofeed.set_frame()
+        self.send(bytes("VIDEO_CALL_START", "utf-16"))
+        # TODO: send username of receiver
+        self.send(bytes("GOD", "utf-16"))
 
     def update_gui(self, msg, is_sent=False):
-        display_listbox.insert("end", msg)
+        display_listbox.insert("end", msg.decode("utf-16"))
 
 client = Client()
 white = "#fff"
@@ -46,7 +51,7 @@ display_listbox = None
 
 def cleanup(root):
     root.destroy()
-    client.send(bytes("QUIT", "utf-8"))
+    client.send(bytes("QUIT", "utf-16"))
 
 
 def design_top(root, master):
@@ -120,12 +125,10 @@ def IP_window():
     return root, e
 
 server_IP = None
-
 def get_IP(root, e):
     global server_IP
     server_IP = e.get()
     root.destroy()
-    return server_IP
 
 if __name__ == "__main__":
     connected = False
@@ -142,7 +145,7 @@ if __name__ == "__main__":
         try:
             client.socket.connect((server_IP, server_port))
             username = input("Enter username: ")
-            client.send(bytes(username, "utf-8"))
+            client.send(bytes(username, "utf-16"))
             connected = True
         except:
             print("Could not connect to server with IP: %s!! Try Again." %(server_IP))
