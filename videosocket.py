@@ -1,4 +1,5 @@
 import socket
+from config import *
 
 class VideoSocket:
     def __init__(self, sock=None):
@@ -17,7 +18,7 @@ class VideoSocket:
         lensent = 0
         # send length of the image first
         while lensent < 18 :
-            msg = bytes(lengthstr[lensent:], "utf-16")
+            msg = bytes(lengthstr[lensent:], ENCODING)
             sent = self.sock.send(msg)
             if sent == 0:
                 raise RuntimeError("Socket connection broken")
@@ -39,7 +40,7 @@ class VideoSocket:
             chunk = self.sock.recv(18 - lenrec)
             if chunk == '':
                 raise RuntimeError("Socket connection broken")
-            lenArray.append(chunk.decode("utf-16"))
+            lenArray.append(chunk.decode(ENCODING))
             lenrec += len(chunk)
         lengthstr = ''.join(lenArray)
         length = int(lengthstr)
