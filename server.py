@@ -53,6 +53,9 @@ class Server:
                         is_video = True
                         # send acceptance message to initiator
                         self.send_to_one(username, bytes("VIDEO_CALL_START", ENCODING), is_video=False)
+                elif msg == "VIDEO_CALL_REJECTED" or msg == "VIDEO_CALL_ACCEPT":
+                    target_name = client.recv(self.buffer_size).decode(ENCODING)
+                    self.send_to_one(target_name, msg, False)
                 else:
                     # normal msg, broadcast to all
                     self.broadcast(username, msg.decode(ENCODING))
@@ -78,8 +81,8 @@ class Server:
         '''
         users = ""
         for u in self.clients.keys():
-        # if u != initiator_username:
-            users = users + u + "$"
+            if u != initiator_username:
+                users = users + u + "$"
         msg = bytes(users, ENCODING)
         self.send_to_one(initiator_username, msg, False)
 

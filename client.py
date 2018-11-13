@@ -11,22 +11,29 @@ class Client:
         self.socket = socket.socket()
         self.socket.settimeout(5)
         self.buffer_size = 2048
-        self.videofeed = VideoFeed("client_cam", 1)
         self.vsock = videosocket.VideoSocket(self.socket)
         self.is_video_call = False
+        self.videofeed = None
 
     def receive(self):
         while True:
             if self.is_video_call:
+                if not self.videofeed:
+                    self.videofeed = VideoFeed("client_cam", 1)
                 frame = self.videofeed.get_frame()
                 self.vsock.vsend(frame)
                 rcvd_frame = self.vsock.vreceive()
                 self.videofeed.set_frame(rcvd_frame)
             else:
+                # free up webcam in case not in use
+                if self.videofeed:
+                    del self.videofeed
+
                 msg = self.socket.recv(self.buffer_size)
                 if msg == bytes("VIDEO_CALL_START", ENCODING):
                     self.is_video_call = True
                 elif msg == bytes("VIDEO_CALL_REQUEST", ENCODING):
+                    # someone wants to videochat with you
                     self.receive_vcall()
                 else:
                     self.update_gui(msg, False)
@@ -41,26 +48,6 @@ class Client:
 
     def initiate_video_call(self):
         self.send(bytes("VIDEO_CALL_START", ENCODING))
-        self.online_users_window()
-
-    def update_gui(self, msg, is_sent=False):
-        display_listbox.insert("end", msg.decode(ENCODING))
-
-    def receive_vcall(self):
-        from_uname = self.socket.recv(self.buffer_size).decode(ENCODING)
-        root = tk.Tk()
-        root.geometry("300x300")
-        l = tk.Label(root, text="Your beloved %s wants to see your face !!" %(from_uname),
-                padx=20, pady=20)
-        l.pack()
-        b1 = tk.Button(root, text="Accept", command=lambda: self.send_confirmation(root, None, True))
-        b1.pack()
-
-        b2 = tk.Button(root, text="Reject", command=lambda: self.send_confirmation(root, None))
-        b2.pack()
-        root.mainloop()
-
-    def online_users_window(self):
         usernames = self.socket.recv(self.buffer_size).decode(ENCODING)
         names = usernames.split("$")[:-1]
 
@@ -71,27 +58,50 @@ class Client:
             l = tk.Label(root, text="No users online, try again later!!", padx=20, pady=10)
             l.pack()
         else:
-            l = tk.Label(root, text="Select user that you want to call", padx=20, pady=10)
+            l = tk.Label(root, text="Select the person whose face you want to see!!")
             l.pack()
 
         for n in names:
-            b = tk.Button(root, text=n, command=lambda: self.send_confirmation(root, n))
+            b = tk.Button(root, text=n, command=lambda: self.decide_target(root, n))
             b.pack()
 
-        qb = tk.Button(root, text="Quit", command=lambda: self.send_confirmation(root, None))
+        qb = tk.Button(root, text="Quit", command=lambda: self.decide_target(root, None))
         qb.pack()
         root.mainloop()
 
-    def send_confirmation(self, root, target_name, accept=False):
-        if target_name:
-            self.send(bytes(target_name, ENCODING))
+    def decide_target(self, root, target):
+        if target:
+            self.send(bytes(target, ENCODING))
         else:
-            if not accept:
-                self.send(bytes("VIDEO_CALL_ABORT", ENCODING))
-            else:
-                self.send(bytes("VIDEO_CALL_ACCEPT", ENCODING))
+            self.send(bytes("VIDEO_CALL_ABORT", ENCODING))
         root.destroy()
 
+    def update_gui(self, msg, is_sent=False):
+        display_listbox.insert("end", msg.decode(ENCODING))
+
+    def receive_vcall(self):
+        # get username of who wants to talk with you
+        from_uname = self.socket.recv(self.buffer_size).decode(ENCODING)
+        root = tk.Tk()
+        root.geometry("300x300")
+        l = tk.Label(root, text="Your beloved %s wants to see your face !!" %(from_uname),
+                padx=20, pady=20)
+        l.pack()
+        b1 = tk.Button(root, text="Accept", command=lambda: self.send_confirmation(root, from_uname, True))
+        b1.pack()
+
+        b2 = tk.Button(root, text="Reject", command=lambda: self.send_confirmation(root, from_uname, False))
+        b2.pack()
+        root.mainloop()
+
+    def send_confirmation(self, root, accept_from, decision):
+        if decision:
+            msg = bytes("VIDEO_CALL_ACCEPT", ENCODING)
+        else:
+            msg = bytes("VIDEO_CALL_REJECTED", ENCODING)
+        self.send(msg)
+        self.send(bytes(accept_from, ENCODING))
+        root.destroy()
 
 client = Client()
 white = "#fff"
