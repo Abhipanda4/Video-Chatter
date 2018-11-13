@@ -1,7 +1,7 @@
 import socket
 import threading
 import videosocket
-import matplotlib.pyplot as plt
+from config import *
 
 class Server:
     def __init__(self, host='', port=50000):
@@ -19,7 +19,7 @@ class Server:
             threading.Thread(target=self.handle_client, args=(client,)).start()
 
     def handle_client(self, client):
-        username = client.recv(self.buffer_size).decode("utf-16")
+        username = client.recv(self.buffer_size).decode(ENCODING)
         vsock = videosocket.VideoSocket(client)
         self.clients[username] = (client, vsock)
         is_video = False
@@ -31,26 +31,46 @@ class Server:
                 self.send_to_one(receiver_username, frame_bytes)
             else:
                 msg = client.recv(self.buffer_size)
-                if msg == bytes("QUIT", "utf-16"):
+                if msg == bytes("QUIT", ENCODING):
                     client.close()
                     del self.clients[username]
-                    self.broadcast(None, bytes("Client %s left the conversation" %(username), "utf-16"))
-                elif msg == bytes("VIDEO_CALL_START", "utf-16"):
+                    self.broadcast(None, bytes("Client %s left the conversation" %(username), ENCODING))
+                elif msg == bytes("VIDEO_CALL_START", ENCODING):
                     print("Video call initiated by %s" %(username))
                     # send all online users to the initiator of video call
                     self.send_online_users(username)
-                    # receive the username client selected
-                    receiver_username = client.recv(self.buffer_size).decode("utf-16")
-                    if receiver_username == "ALL_OUT":
-                        continue
-                    print(receiver_username)
-                    is_video = True
 
-                    # send acceptance message to initiator
-                    self.send_to_one(username, bytes("VIDEO_CALL_START", "utf-16"), is_video=False)
+                    # receive the username client selected
+                    receiver_username = client.recv(self.buffer_size).decode(ENCODING)
+                    if receiver_username == "VIDEO_CALL_ABORT":
+                        continue
+                    print("Video call to: %s" %(receiver_username))
+
+                    # send video call request to receiving target
+                    success = self.get_receiver_confirmation(client, username, receiver_username)
+
+                    if success:
+                        is_video = True
+                        # send acceptance message to initiator
+                        self.send_to_one(username, bytes("VIDEO_CALL_START", ENCODING), is_video=False)
                 else:
                     # normal msg, broadcast to all
-                    self.broadcast(username, msg.decode("utf-16"))
+                    self.broadcast(username, msg.decode(ENCODING))
+
+    def get_receiver_confirmation(self, client, source, target):
+        '''
+        Gets confirmation of whether target is willing to accept a video call
+        '''
+        req_msg = bytes("VIDEO_CALL_REQUEST", ENCODING)
+        self.send_to_one(target, req_msg, False)
+        from_uname = bytes(source, ENCODING)
+        self.send_to_one(target, from_uname, False)
+
+        confirmation = client.recv(self.buffer_size).decode(ENCODING)
+        if confirmation == "VIDEO_CALL_ACCEPT":
+            return True
+        elif confirmation == "VIDEO_CALL_ABORT":
+            return False
 
     def send_online_users(self, initiator_username):
         '''
@@ -58,23 +78,24 @@ class Server:
         '''
         users = ""
         for u in self.clients.keys():
-            # if u != initiator_username:
+        # if u != initiator_username:
             users = users + u + "$"
-        msg = bytes(users, "utf-16")
+        msg = bytes(users, ENCODING)
         self.send_to_one(initiator_username, msg, False)
 
     def broadcast(self, sender, msg):
         for u, c in self.clients.items():
             if sender:
-                c[0].send(bytes("%s: %s" %(sender, msg), "utf-16"))
+                c[0].send(bytes("%s: %s" %(sender, msg), ENCODING))
             else:
-                c[0].send(bytes("%s" %(msg), "utf-16"))
+                c[0].send(bytes("%s" %(msg), ENCODING))
 
     def send_to_one(self, target, msg, is_video=True):
         c = self.clients[target]
         if is_video:
             c[1].vsend(msg)
         else:
+            print("Message sent to %s" %(target))
             c[0].send(msg)
 
 if __name__ == "__main__":

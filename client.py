@@ -4,6 +4,7 @@ import tkinter as tk
 
 import videosocket
 from videofeed import VideoFeed
+from config import *
 
 class Client:
     def __init__(self):
@@ -23,8 +24,10 @@ class Client:
                 self.videofeed.set_frame(rcvd_frame)
             else:
                 msg = self.socket.recv(self.buffer_size)
-                if msg == bytes("VIDEO_CALL_START", "utf-16"):
+                if msg == bytes("VIDEO_CALL_START", ENCODING):
                     self.is_video_call = True
+                elif msg == bytes("VIDEO_CALL_REQUEST", ENCODING):
+                    self.receive_vcall()
                 else:
                     self.update_gui(msg, False)
 
@@ -32,21 +35,34 @@ class Client:
         if msg is None:
             msg = msg_box.get()
             msg_box.delete(0, tk.END)
-            self.socket.send(bytes(msg, "utf-16"))
+            self.socket.send(bytes(msg, ENCODING))
         else:
             self.socket.send(msg)
 
     def initiate_video_call(self):
-        self.send(bytes("VIDEO_CALL_START", "utf-16"))
+        self.send(bytes("VIDEO_CALL_START", ENCODING))
         self.online_users_window()
 
     def update_gui(self, msg, is_sent=False):
-        display_listbox.insert("end", msg.decode("utf-16"))
+        display_listbox.insert("end", msg.decode(ENCODING))
+
+    def receive_vcall(self):
+        from_uname = self.socket.recv(self.buffer_size).decode(ENCODING)
+        root = tk.Tk()
+        root.geometry("300x300")
+        l = tk.Label(root, text="Your beloved %s wants to see your face !!" %(from_uname),
+                padx=20, pady=20)
+        l.pack()
+        b1 = tk.Button(root, text="Accept", command=lambda: self.send_confirmation(root, None, True))
+        b1.pack()
+
+        b2 = tk.Button(root, text="Reject", command=lambda: self.send_confirmation(root, None))
+        b2.pack()
+        root.mainloop()
 
     def online_users_window(self):
-        usernames = self.socket.recv(self.buffer_size).decode("utf-16")
+        usernames = self.socket.recv(self.buffer_size).decode(ENCODING)
         names = usernames.split("$")[:-1]
-        print(names)
 
         num_online = len(names)
         root = tk.Tk()
@@ -59,18 +75,21 @@ class Client:
             l.pack()
 
         for n in names:
-            b = tk.Button(root, text=n, command=lambda: self.send_target_name(root, n))
+            b = tk.Button(root, text=n, command=lambda: self.send_confirmation(root, n))
             b.pack()
 
-        qb = tk.Button(root, text="Quit", command=lambda: self.send_target_name(root, None))
+        qb = tk.Button(root, text="Quit", command=lambda: self.send_confirmation(root, None))
         qb.pack()
         root.mainloop()
 
-    def send_target_name(self, root, target_name):
+    def send_confirmation(self, root, target_name, accept=False):
         if target_name:
-            self.send(bytes(target_name, "utf-16"))
+            self.send(bytes(target_name, ENCODING))
         else:
-            self.send(bytes("ALL_OUT", "utf-16"))
+            if not accept:
+                self.send(bytes("VIDEO_CALL_ABORT", ENCODING))
+            else:
+                self.send(bytes("VIDEO_CALL_ACCEPT", ENCODING))
         root.destroy()
 
 
@@ -82,7 +101,7 @@ display_listbox = None
 
 def cleanup(root):
     root.destroy()
-    client.send(bytes("QUIT", "utf-16"))
+    client.send(bytes("QUIT", ENCODING))
 
 
 def design_top(root, master):
@@ -177,7 +196,7 @@ if __name__ == "__main__":
             client.socket.connect((server_IP, server_port))
             client.socket.settimeout(None)
             username = input("Enter username: ")
-            client.send(bytes(username, "utf-16"))
+            client.send(bytes(username, ENCODING))
             connected = True
         except:
             print("Could not connect to server with IP: %s!! Try Again." %(server_IP))
