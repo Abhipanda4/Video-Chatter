@@ -31,30 +31,37 @@ class Server:
                 self.send_to_one(receiver_username, frame_bytes)
             else:
                 msg = client.recv(self.buffer_size)
+                print(username + "-----" + msg.decode(ENCODING))
                 if msg == bytes("QUIT", ENCODING):
                     client.close()
                     del self.clients[username]
                     self.broadcast(None, bytes("Client %s left the conversation" %(username), ENCODING))
+                elif msg == bytes("VIDEO_CALL_INITIATE", ENCODING):
+                    client.send(msg)
                 elif msg == bytes("VIDEO_CALL_START", ENCODING):
-                    print("Video call initiated by %s" %(username))
-                    # send all online users to the initiator of video call
-                    self.send_online_users(username)
+                    # this client has initiated a video call
+                    online_users = self.get_online_users(username)
+                    client.send(online_users)
 
-                    # receive the username client selected
+                    # receive the username client selected to chat with
                     receiver_username = client.recv(self.buffer_size).decode(ENCODING)
                     if receiver_username == "VIDEO_CALL_ABORT":
                         continue
-                    print("Video call to: %s" %(receiver_username))
+                    print("%s requested a video call to: %s" %(username, receiver_username))
 
                     # send video call request to receiving target
                     success = self.get_receiver_confirmation(client, username, receiver_username)
 
                     if success:
+                        print("Successfully started")
                         is_video = True
                         # send acceptance message to initiator
-                        self.send_to_one(username, bytes("VIDEO_CALL_START", ENCODING), is_video=False)
+                        client.send(bytes("VIDEO_CALL_START", ENCODING))
+                        print("start msg sent")
                 elif msg == bytes("VIDEO_CALL_REJECTED", ENCODING) or msg == bytes("VIDEO_CALL_ACCEPT", ENCODING):
+                    print("Confirmation received from %s" %(username))
                     target_name = client.recv(self.buffer_size).decode(ENCODING)
+                    print("Sending %s to %s" %(msg.decode(ENCODING), target_name))
                     self.send_to_one(target_name, msg, False)
                 else:
                     # normal msg, broadcast to all
@@ -64,27 +71,27 @@ class Server:
         '''
         Gets confirmation of whether target is willing to accept a video call
         '''
-        req_msg = bytes("VIDEO_CALL_REQUEST", ENCODING)
-        self.send_to_one(target, req_msg, False)
-        from_uname = bytes(source, ENCODING)
-        self.send_to_one(target, from_uname, False)
+        print("Getting confirmation from %s for %s" %(target, source))
+        msg = bytes("VIDEO_CALL_REQUEST$%s" %(source), ENCODING)
+        self.send_to_one(target, msg, False)
 
         confirmation = client.recv(self.buffer_size).decode(ENCODING)
+        print(confirmation)
         if confirmation == "VIDEO_CALL_ACCEPT":
             return True
         elif confirmation == "VIDEO_CALL_ABORT":
             return False
 
-    def send_online_users(self, initiator_username):
+    def get_online_users(self, initiator_username):
         '''
         Send all online users separated by $ to initiator
         '''
         users = ""
         for u in self.clients.keys():
-            if u != initiator_username:
-                users = users + u + "$"
+        # if u != initiator_username:
+            users = users + u + "$"
         msg = bytes(users, ENCODING)
-        self.send_to_one(initiator_username, msg, False)
+        return msg
 
     def broadcast(self, sender, msg):
         for u, c in self.clients.items():
@@ -98,7 +105,6 @@ class Server:
         if is_video:
             c[1].vsend(msg)
         else:
-            print("Message sent to %s" %(target))
             c[0].send(msg)
 
 if __name__ == "__main__":
