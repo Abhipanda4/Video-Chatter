@@ -34,15 +34,23 @@ class Client:
                 decoded_msg = msg.decode(ENCODING)
                 print(decoded_msg)
                 if decoded_msg == "VIDEO_CALL_START":
+                    self.send(bytes("READY_FOR_VIDEO_CALL", ENCODING))
                     self.is_video_call = True
+
+                elif decoded_msg == "READY_FOR_VIDEO_CALL":
+                    self.is_video_call = True
+
                 elif decoded_msg == "VIDEO_CALL_INITIATE":
                     self.initiate_video_call()
+
                 elif decoded_msg == "VIDEO_CALL_ACCEPT" or decoded_msg == "VIDEO_CALL_REJECTED":
                     self.send(msg)
+
                 elif "VIDEO_CALL_REQUEST" in decoded_msg:
                     # someone wants to videochat with you
                     from_uname = decoded_msg.split('$')[-1]
                     self.receive_vcall(from_uname)
+
                 else:
                     self.update_gui(msg, False)
 
@@ -104,10 +112,8 @@ class Client:
     def send_confirmation(self, root, accept_from, decision):
         if decision:
             msg = bytes("VIDEO_CALL_ACCEPT", ENCODING)
-            self.is_video_call = True
         else:
             msg = bytes("VIDEO_CALL_REJECTED", ENCODING)
-        print("Sending msg to %s: %s" %(accept_from, msg.decode(ENCODING)))
         self.send(msg)
         time.sleep(1)
         self.send(bytes(accept_from, ENCODING))

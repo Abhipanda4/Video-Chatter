@@ -36,8 +36,13 @@ class Server:
                     client.close()
                     del self.clients[username]
                     self.broadcast(None, bytes("Client %s left the conversation" %(username), ENCODING))
+
+                elif msg == bytes("READY_FOR_VIDEO_CALL", ENCODING):
+                    is_video = True
+
                 elif msg == bytes("VIDEO_CALL_INITIATE", ENCODING):
                     client.send(msg)
+
                 elif msg == bytes("VIDEO_CALL_START", ENCODING):
                     # this client has initiated a video call
                     online_users = self.get_online_users(username)
@@ -53,16 +58,16 @@ class Server:
                     success = self.get_receiver_confirmation(client, username, receiver_username)
 
                     if success:
-                        print("Successfully started")
-                        is_video = True
                         # send acceptance message to initiator
                         client.send(bytes("VIDEO_CALL_START", ENCODING))
-                        print("start msg sent")
+
                 elif msg == bytes("VIDEO_CALL_REJECTED", ENCODING) or msg == bytes("VIDEO_CALL_ACCEPT", ENCODING):
-                    print("Confirmation received from %s" %(username))
                     target_name = client.recv(self.buffer_size).decode(ENCODING)
-                    print("Sending %s to %s" %(msg.decode(ENCODING), target_name))
                     self.send_to_one(target_name, msg, False)
+                    if msg == bytes("VIDEO_CALL_ACCEPT", ENCODING):
+                        is_video = True
+                        client.send(bytes("READY_FOR_VIDEO_CALL", ENCODING))
+
                 else:
                     # normal msg, broadcast to all
                     self.broadcast(username, msg.decode(ENCODING))
@@ -76,7 +81,6 @@ class Server:
         self.send_to_one(target, msg, False)
 
         confirmation = client.recv(self.buffer_size).decode(ENCODING)
-        print(confirmation)
         if confirmation == "VIDEO_CALL_ACCEPT":
             return True
         elif confirmation == "VIDEO_CALL_ABORT":
