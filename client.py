@@ -1,3 +1,4 @@
+import time
 import socket
 from threading import Thread
 import tkinter as tk
@@ -30,11 +31,18 @@ class Client:
                     del self.videofeed
 
                 msg = self.socket.recv(self.buffer_size)
-                if msg == bytes("VIDEO_CALL_START", ENCODING):
+                decoded_msg = msg.decode(ENCODING)
+                print(decoded_msg)
+                if decoded_msg == "VIDEO_CALL_START":
                     self.is_video_call = True
-                elif msg == bytes("VIDEO_CALL_REQUEST", ENCODING):
+                elif decoded_msg == "VIDEO_CALL_INITIATE":
+                    self.initiate_video_call()
+                elif decoded_msg == "VIDEO_CALL_ACCEPT" or decoded_msg == "VIDEO_CALL_REJECTED":
+                    self.send(msg)
+                elif "VIDEO_CALL_REQUEST" in decoded_msg:
                     # someone wants to videochat with you
-                    self.receive_vcall()
+                    from_uname = decoded_msg.split('$')[-1]
+                    self.receive_vcall(from_uname)
                 else:
                     self.update_gui(msg, False)
 
@@ -58,11 +66,11 @@ class Client:
             l = tk.Label(root, text="No users online, try again later!!", padx=20, pady=10)
             l.pack()
         else:
-            l = tk.Label(root, text="Select the person whose face you want to see!!")
+            l = tk.Label(root, text="Select the person whose face you want to see!!", padx=20, pady=20)
             l.pack()
 
-        for n in names:
-            b = tk.Button(root, text=n, command=lambda: self.decide_target(root, n))
+        for i in range(len(names)):
+            b = tk.Button(root, text=names[i], command=lambda: self.decide_target(root, names[i]))
             b.pack()
 
         qb = tk.Button(root, text="Quit", command=lambda: self.decide_target(root, None))
@@ -79,9 +87,8 @@ class Client:
     def update_gui(self, msg, is_sent=False):
         display_listbox.insert("end", msg.decode(ENCODING))
 
-    def receive_vcall(self):
+    def receive_vcall(self, from_uname):
         # get username of who wants to talk with you
-        from_uname = self.socket.recv(self.buffer_size).decode(ENCODING)
         root = tk.Tk()
         root.geometry("300x300")
         l = tk.Label(root, text="Your beloved %s wants to see your face !!" %(from_uname),
@@ -97,9 +104,12 @@ class Client:
     def send_confirmation(self, root, accept_from, decision):
         if decision:
             msg = bytes("VIDEO_CALL_ACCEPT", ENCODING)
+            self.is_video_call = True
         else:
             msg = bytes("VIDEO_CALL_REJECTED", ENCODING)
+        print("Sending msg to %s: %s" %(accept_from, msg.decode(ENCODING)))
         self.send(msg)
+        time.sleep(1)
         self.send(bytes(accept_from, ENCODING))
         root.destroy()
 
@@ -111,6 +121,7 @@ display_listbox = None
 
 def cleanup(root):
     root.destroy()
+    client.socket.close()
     client.send(bytes("QUIT", ENCODING))
 
 
@@ -119,7 +130,8 @@ def design_top(root, master):
     fr1.pack(side=tk.LEFT)
     fr1.pack_propagate(0)
 
-    btn1 = tk.Button(fr1, text="Video Call", height=40, command=client.initiate_video_call)
+    btn1 = tk.Button(fr1, text="Video Call", height=40,
+            command=lambda: client.send(bytes("VIDEO_CALL_INITIATE",ENCODING)))
     btn1.pack(fill=tk.BOTH)
 
     fr2 = tk.Frame(master, bg=white, width=150, height=40, padx=10)
