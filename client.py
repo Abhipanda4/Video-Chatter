@@ -15,9 +15,10 @@ class Client:
         self.vsock = videosocket.VideoSocket(self.socket)
         self.is_video_call = False
         self.videofeed = None
+        self.connected = True
 
     def receive(self):
-        while True:
+        while self.connected:
             if self.is_video_call:
                 if not self.videofeed:
                     self.videofeed = VideoFeed("client_cam", 1)
@@ -149,6 +150,7 @@ def cleanup(root):
     client.send(bytes("QUIT", ENCODING))
     client.socket.shutdown(socket.SHUT_RDWR)
     client.socket.close()
+    client.connected = False
 
 
 def design_top(root, master):

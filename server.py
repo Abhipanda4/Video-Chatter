@@ -56,7 +56,7 @@ class Server:
                 if msg == bytes("QUIT", ENCODING):
                     client.close()
                     del self.clients[username]
-                    self.broadcast(None, bytes("Client %s left the conversation" %(username), ENCODING))
+                    self.broadcast(None, "Client %s has left the conversation" %(username))
                     break
 
                 elif msg == bytes("READY_FOR_VIDEO_CALL", ENCODING):
