@@ -24,7 +24,7 @@ class Client:
                 frame = self.videofeed.get_frame()
                 self.vsock.vsend(frame)
                 rcvd_frame = self.vsock.vreceive()
-                self.videofeed.set_frame(rcvd_frame)
+                self.is_video_call = self.videofeed.set_frame(rcvd_frame)
             else:
                 # free up webcam in case not in use
                 if self.videofeed:

@@ -28,12 +28,17 @@ class VideoFeed:
         pil_bytes = io.BytesIO(frame_bytes)
         pil_image = Image.open(pil_bytes)
         cv_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        print(cv_image.shape)
         cv2.imshow(self.name, cv_image)
+        c = cv2.waitKey(1)
+        if 'q' == chr(c & 255):
+            cv2.destroyAllWindows()
+            return False
+        return True
 
 if __name__=="__main__":
     vf = VideoFeed("MAIN", 1)
-    while 1:
+    flag = True
+    while flag:
         m = vf.get_frame()
-        vf.set_frame(m)
+        flag = vf.set_frame(m)
 
