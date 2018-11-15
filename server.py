@@ -36,7 +36,18 @@ class Server:
         while True:
             if is_video:
                 frame_bytes = vsock.vreceive()
+                try:
+                    if frame_bytes == 1:
+                        is_video = False
+                        self.send_to_one(receiver_username, bytes("-2", ENCODING))
+                        continue
+                    elif frame_bytes == 2:
+                        is_video = False
+                        continue
+                except:
+                    pass
                 self.send_to_one(receiver_username, frame_bytes)
+
             else:
                 msg = self._safe_recv(client)
                 if msg is None:
@@ -46,6 +57,7 @@ class Server:
                     client.close()
                     del self.clients[username]
                     self.broadcast(None, bytes("Client %s left the conversation" %(username), ENCODING))
+                    break
 
                 elif msg == bytes("READY_FOR_VIDEO_CALL", ENCODING):
                     is_video = True

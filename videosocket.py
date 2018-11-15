@@ -43,6 +43,7 @@ class VideoSocket:
             lenArray.append(chunk.decode(ENCODING))
             lenrec += len(chunk)
         lengthstr = ''.join(lenArray)
+
         length = int(lengthstr)
 
         # now we know length of image array
@@ -55,4 +56,14 @@ class VideoSocket:
                 raise RuntimeError("Socket connection broken")
             imgArray.append(chunk)
             totrec += len(chunk)
-        return b''.join(imgArray)
+        frame = b''.join(imgArray)
+        try:
+            # check if the other party has quit
+            if frame.decode(ENCODING) == "-1":
+                return 1
+            if frame.decode(ENCODING) == "-2":
+                return 2
+        except:
+            pass
+
+        return frame

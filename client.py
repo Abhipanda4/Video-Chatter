@@ -21,10 +21,24 @@ class Client:
             if self.is_video_call:
                 if not self.videofeed:
                     self.videofeed = VideoFeed("client_cam", 1)
+
                 frame = self.videofeed.get_frame()
                 self.vsock.vsend(frame)
                 rcvd_frame = self.vsock.vreceive()
-                self.is_video_call = self.videofeed.set_frame(rcvd_frame)
+
+                try:
+                    if rcvd_frame == 2:
+                        self.is_video_call = False
+                        self.vsock.vsend(bytes("-2", ENCODING))
+                except:
+                    pass
+
+                quit = self.videofeed.set_frame(rcvd_frame)
+                if quit:
+                    # inform other party that user wants to quit
+                    self.vsock.vsend(bytes("-1", ENCODING))
+                    self.is_video_call = False
+
             else:
                 # free up webcam in case not in use
                 if self.videofeed:
