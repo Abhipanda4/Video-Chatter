@@ -63,6 +63,7 @@ class Server:
 
                 elif msg == bytes("VIDEO_CALL_REJECTED", ENCODING) or msg == bytes("VIDEO_CALL_ACCEPT", ENCODING):
                     target_name = client.recv(self.buffer_size).decode(ENCODING)
+                    receiver_username = target_name
                     self.send_to_one(target_name, msg, False)
                     if msg == bytes("VIDEO_CALL_ACCEPT", ENCODING):
                         is_video = True
