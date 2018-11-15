@@ -6,11 +6,19 @@ from config import *
 class Server:
     def __init__(self, host='', port=50000):
         self.server = socket.socket()
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((host, port))
         self.host = host
         self.port = port
         self.buffer_size = 2048
         self.clients = dict()
+
+    def _safe_recv(self, client):
+        try:
+            msg = client.recv(self.buffer_size)
+            return msg
+        except:
+            return None
 
     def accept_conn(self):
         while True:
@@ -19,7 +27,7 @@ class Server:
             threading.Thread(target=self.handle_client, args=(client,)).start()
 
     def handle_client(self, client):
-        username = client.recv(self.buffer_size).decode(ENCODING)
+        username = self._safe_recv(client).decode(ENCODING)
         vsock = videosocket.VideoSocket(client)
         self.clients[username] = (client, vsock)
         is_video = False
@@ -30,7 +38,9 @@ class Server:
                 frame_bytes = vsock.vreceive()
                 self.send_to_one(receiver_username, frame_bytes)
             else:
-                msg = client.recv(self.buffer_size)
+                msg = self._safe_recv(client)
+                if msg is None:
+                    break
                 print(username + "-----" + msg.decode(ENCODING))
                 if msg == bytes("QUIT", ENCODING):
                     client.close()
@@ -49,7 +59,7 @@ class Server:
                     client.send(online_users)
 
                     # receive the username client selected to chat with
-                    receiver_username = client.recv(self.buffer_size).decode(ENCODING)
+                    receiver_username = self._safe_recv(client).decode(ENCODING)
                     if receiver_username == "VIDEO_CALL_ABORT":
                         continue
                     print("%s requested a video call to: %s" %(username, receiver_username))
@@ -62,7 +72,7 @@ class Server:
                         client.send(bytes("VIDEO_CALL_START", ENCODING))
 
                 elif msg == bytes("VIDEO_CALL_REJECTED", ENCODING) or msg == bytes("VIDEO_CALL_ACCEPT", ENCODING):
-                    target_name = client.recv(self.buffer_size).decode(ENCODING)
+                    target_name = self._safe_recv(client).decode(ENCODING)
                     receiver_username = target_name
                     self.send_to_one(target_name, msg, False)
                     if msg == bytes("VIDEO_CALL_ACCEPT", ENCODING):
@@ -81,7 +91,7 @@ class Server:
         msg = bytes("VIDEO_CALL_REQUEST$%s" %(source), ENCODING)
         self.send_to_one(target, msg, False)
 
-        confirmation = client.recv(self.buffer_size).decode(ENCODING)
+        confirmation = self._safe_recv(client).decode(ENCODING)
         if confirmation == "VIDEO_CALL_ACCEPT":
             return True
         elif confirmation == "VIDEO_CALL_ABORT":
@@ -93,8 +103,8 @@ class Server:
         '''
         users = ""
         for u in self.clients.keys():
-        # if u != initiator_username:
-            users = users + u + "$"
+            if u != initiator_username:
+                users = users + u + "$"
         msg = bytes(users, ENCODING)
         return msg
 
@@ -119,4 +129,5 @@ if __name__ == "__main__":
     accept_thread = threading.Thread(target=s.accept_conn)
     accept_thread.start()
     accept_thread.join()
+    s.server.shutdown(socket.SHUT_RDWR)
     s.server.close()

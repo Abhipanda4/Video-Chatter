@@ -78,7 +78,8 @@ class Client:
             l.pack()
 
         for i in range(len(names)):
-            b = tk.Button(root, text=names[i], command=lambda: self.decide_target(root, names[i]))
+            b = tk.Button(root, text=names[i],
+                    command=lambda: self.decide_target(root, names[i]))
             b.pack()
 
         qb = tk.Button(root, text="Quit", command=lambda: self.decide_target(root, None))
@@ -93,6 +94,7 @@ class Client:
         root.destroy()
 
     def update_gui(self, msg, is_sent=False):
+        print(msg)
         display_listbox.insert("end", msg.decode(ENCODING))
 
     def receive_vcall(self, from_uname):
@@ -127,8 +129,9 @@ display_listbox = None
 
 def cleanup(root):
     root.destroy()
-    client.socket.close()
     client.send(bytes("QUIT", ENCODING))
+    client.socket.shutdown(socket.SHUT_RDWR)
+    client.socket.close()
 
 
 def design_top(root, master):
