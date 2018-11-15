@@ -79,7 +79,7 @@ class Client:
 
         for i in range(len(names)):
             b = tk.Button(root, text=names[i],
-                    command=lambda: self.decide_target(root, names[i]))
+                    command=lambda name=names[i]: self.decide_target(root, name))
             b.pack()
 
         qb = tk.Button(root, text="Quit", command=lambda: self.decide_target(root, None))
