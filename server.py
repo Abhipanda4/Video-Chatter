@@ -12,6 +12,7 @@ class Server:
         self.port = port
         self.buffer_size = 2048
         self.clients = dict()
+        self._busy_clients = set()
 
     def _safe_recv(self, client):
         try:
@@ -27,7 +28,13 @@ class Server:
             threading.Thread(target=self.handle_client, args=(client,)).start()
 
     def handle_client(self, client):
-        username = self._safe_recv(client).decode(ENCODING)
+        while True:
+            username = self._safe_recv(client).decode(ENCODING)
+            if username in self.clients.keys():
+                client.send(bytes("USERNAME_UNAVAILABLE", ENCODING))
+            else:
+                client.send(bytes("USERNAME_AVAILABLE", ENCODING))
+                break
         vsock = videosocket.VideoSocket(client)
         self.clients[username] = (client, vsock)
         is_video = False
@@ -40,6 +47,8 @@ class Server:
                     if frame_bytes == 1:
                         is_video = False
                         self.send_to_one(receiver_username, bytes("-2", ENCODING))
+                        self._busy_clients.remove(receiver_username)
+                        self._busy_clients.remove(username)
                         continue
                     elif frame_bytes == 2:
                         is_video = False
@@ -105,6 +114,8 @@ class Server:
 
         confirmation = self._safe_recv(client).decode(ENCODING)
         if confirmation == "VIDEO_CALL_ACCEPT":
+            self._busy_clients.add(source)
+            self._busy_clients.add(target)
             return True
         elif confirmation == "VIDEO_CALL_ABORT":
             return False
@@ -115,7 +126,7 @@ class Server:
         '''
         users = ""
         for u in self.clients.keys():
-            if u != initiator_username:
+            if u != initiator_username and u not in self._busy_clients:
                 users = users + u + "$"
         msg = bytes(users, ENCODING)
         return msg

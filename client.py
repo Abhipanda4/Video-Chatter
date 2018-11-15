@@ -224,15 +224,29 @@ def IP_window():
     e.pack()
     return root, e
 
+def username_window():
+    root = tk.Tk()
+    root.geometry("200x200")
+    l1 = tk.Label(root, text="Enter username", padx=20, pady=20)
+    l1.pack()
+    e = tk.Entry(root)
+    e.pack()
+    return root, e
+
 server_IP = None
 def get_IP(root, e):
     global server_IP
     server_IP = e.get()
     root.destroy()
 
+username = None
+def get_username(root, e):
+    global username
+    username = e.get()
+    root.destroy()
+
 if __name__ == "__main__":
     connected = False
-    username = None
     while not connected:
         dialog, e = IP_window()
         b1 = tk.Button(dialog, text="Submit", command=lambda: get_IP(dialog, e))
@@ -245,10 +259,21 @@ if __name__ == "__main__":
         try:
             client.socket.connect((server_IP, server_port))
             client.socket.settimeout(None)
-            username = input("Enter username: ")
-            client.send(bytes(username, ENCODING))
+            while True:
+                dialog, e = username_window()
+                b1 = tk.Button(dialog, text="Submit", command=lambda: get_username(dialog, e))
+                b1.pack()
+                dialog.mainloop()
+                if username is None:
+                    continue
+                else:
+                    client.send(bytes(username, ENCODING))
+                    confirmation = client.socket.recv(client.buffer_size).decode(ENCODING)
+                    if confirmation == "USERNAME_AVAILABLE":
+                        break
             connected = True
-        except:
+        except Exception as e:
+            print(e)
             print("Could not connect to server with IP: %s!! Try Again." %(server_IP))
 
 
@@ -257,3 +282,4 @@ if __name__ == "__main__":
 
     window = create_window()
     window.mainloop()
+    receive_thread.join()
