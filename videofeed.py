@@ -12,6 +12,9 @@ class VideoFeed:
             if not self.cam.isOpened():
                 self.cam.open(self.camera_index)
 
+    def destroy(self):
+        cv2.destroyAllWindows()
+
     def get_frame(self):
         ret_val, img = self.cam.read()
         c = cv2.waitKey(1)
@@ -31,9 +34,9 @@ class VideoFeed:
         cv2.imshow(self.name, cv_image)
         c = cv2.waitKey(1)
         if 'q' == chr(c & 255):
-            cv2.destroyAllWindows()
-            return False
-        return True
+            self.destroy()
+            return True
+        return False
 
 if __name__=="__main__":
     vf = VideoFeed("MAIN", 1)

@@ -30,6 +30,8 @@ class Client:
                     if rcvd_frame == 2:
                         self.is_video_call = False
                         self.vsock.vsend(bytes("-2", ENCODING))
+                        self.videofeed.destroy()
+                        continue
                 except:
                     pass
 
@@ -42,11 +44,13 @@ class Client:
             else:
                 # free up webcam in case not in use
                 if self.videofeed:
-                    del self.videofeed
+                    self.videofeed = None
 
                 msg = self.socket.recv(self.buffer_size)
-                decoded_msg = msg.decode(ENCODING)
-                print(decoded_msg)
+                try:
+                    decoded_msg = msg.decode(ENCODING)
+                except:
+                    continue
                 if decoded_msg == "VIDEO_CALL_START":
                     self.send(bytes("READY_FOR_VIDEO_CALL", ENCODING))
                     self.is_video_call = True
@@ -108,7 +112,6 @@ class Client:
         root.destroy()
 
     def update_gui(self, msg, is_sent=False):
-        print(msg)
         display_listbox.insert("end", msg.decode(ENCODING))
 
     def receive_vcall(self, from_uname):
